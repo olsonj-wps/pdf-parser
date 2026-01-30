@@ -338,8 +338,8 @@
                 }
             }
             
-            // Dollar amount (get the last one)
-            const amountMatches = text.match(/\$([\d,]+\.\d{2})/g);
+            // Dollar amount (get the last one) - handle 0, 1, or 2 decimal places
+            const amountMatches = text.match(/\$([\d,]+(?:\.\d{1,2})?)/g);
             if (amountMatches && amountMatches.length > 0) {
                 amount = amountMatches[amountMatches.length - 1];
             }
@@ -396,8 +396,8 @@
         document.getElementById('downloadAllBtn').addEventListener('click', async () => {
             const zip = new JSZip();
             const folderName = 'Overtime_PDFs_2025';
-            const folder = zip.folder(folderName);
-            splitPdfs.forEach(pdf => folder.file(pdf.filename, pdf.bytes));
+            // Add folder path to each filename to force folder creation
+            splitPdfs.forEach(pdf => zip.file(folderName + '/' + pdf.filename, pdf.bytes));
             const content = await zip.generateAsync({ type: 'blob' });
             const url = URL.createObjectURL(content);
             const a = document.createElement('a');
