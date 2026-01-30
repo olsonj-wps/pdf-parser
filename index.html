@@ -412,17 +412,14 @@
         }
         
         function extractEmployeeData(text, pageNum) {
-            // Try multiple patterns for employee ID
-            // Pattern 1: 5-7 digit number followed by dash and name (e.g., "38600-SHARON M BATTELLE")
-            const idNamePattern = text.match(/(\d{5,7})-([A-Z][A-Z\s]+)/);
+            // Pattern 1: "38600 - SHARON M BATTELLE" format (ID space dash space NAME)
+            // This is the primary pattern we're looking for
+            const idNamePattern = text.match(/(\d{5,6})\s*[-–]\s*([A-Z][A-Z\s]+?)(?=\s*Re:|\s*$|\n)/);
             
-            // Pattern 2: Just look for 5-7 digit numbers
-            const idMatch = text.match(/\b(\d{5,7})\b/);
+            // Pattern 2: "Dear NAME," to get the name
+            const dearMatch = text.match(/Dear\s+([A-Z][A-Z\s]+?),/);
             
-            // Pattern 3: "Dear Name," pattern
-            const nameMatch = text.match(/Dear\s+([^,]+),/i);
-            
-            // Pattern 4: Dollar amount
+            // Pattern 3: Dollar amount for overtime
             const amountMatch = text.match(/\$\s*([\d,]+\.?\d*)/);
             
             let empId = 'Not Found';
@@ -432,12 +429,14 @@
             if (idNamePattern) {
                 empId = idNamePattern[1];
                 empName = idNamePattern[2].trim();
-            } else if (idMatch) {
-                empId = idMatch[1];
-            }
-            
-            if (nameMatch && empName === 'Unknown') {
-                empName = nameMatch[1].trim();
+            } else if (dearMatch) {
+                // If we found "Dear NAME," try to find ID separately
+                // Look for 5-6 digit number that's NOT a zip code (not preceded by MA/Worcester)
+                empName = dearMatch[1].trim();
+                const idOnly = text.match(/^[\s\S]*?(\d{5,6})\s*[-–]/m);
+                if (idOnly) {
+                    empId = idOnly[1];
+                }
             }
             
             if (amountMatch) {
@@ -449,7 +448,7 @@
                 empId,
                 empName,
                 amount,
-                rawText: text.substring(0, 200) // Keep first 200 chars for debugging
+                rawText: text.substring(0, 500) // Keep first 500 chars for debugging
             };
         }
         
