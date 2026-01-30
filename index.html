@@ -172,6 +172,7 @@
             <h2>Extracted Data</h2>
             <div class="btn-group">
                 <button class="btn btn-success" id="downloadAllBtn">Download All (ZIP)</button>
+                <button class="btn btn-primary" id="downloadAllUnzippedBtn">Download All (Individual Files)</button>
                 <button class="btn btn-primary" id="exportCsvBtn">Export CSV</button>
             </div>
         </div>
@@ -328,7 +329,8 @@
                 
                 // Escape special regex chars in name
                 const escapedName = empName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-                const idPattern = new RegExp('(\\d{5,6})\\s*[-–]\\s*' + escapedName);
+                // Allow 5-7 digit IDs
+                const idPattern = new RegExp('(\\d{5,7})\\s*[-–]\\s*' + escapedName);
                 const idMatch = text.match(idPattern);
                 
                 if (idMatch) {
@@ -393,14 +395,41 @@
         
         document.getElementById('downloadAllBtn').addEventListener('click', async () => {
             const zip = new JSZip();
-            splitPdfs.forEach(pdf => zip.file(pdf.filename, pdf.bytes));
+            const folderName = 'Overtime_PDFs_2025';
+            const folder = zip.folder(folderName);
+            splitPdfs.forEach(pdf => folder.file(pdf.filename, pdf.bytes));
             const content = await zip.generateAsync({ type: 'blob' });
             const url = URL.createObjectURL(content);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'overtime_pages.zip';
+            a.download = folderName + '.zip';
             a.click();
             URL.revokeObjectURL(url);
+        });
+        
+        document.getElementById('downloadAllUnzippedBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('downloadAllUnzippedBtn');
+            btn.disabled = true;
+            btn.textContent = 'Downloading...';
+            
+            for (let i = 0; i < splitPdfs.length; i++) {
+                const pdf = splitPdfs[i];
+                btn.textContent = `Downloading ${i + 1}/${splitPdfs.length}...`;
+                
+                const blob = new Blob([pdf.bytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = pdf.filename;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                // Small delay between downloads to prevent browser blocking
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+            
+            btn.disabled = false;
+            btn.textContent = 'Download All (Individual Files)';
         });
         
         document.getElementById('exportCsvBtn').addEventListener('click', () => {
