@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Overtime PDF Parser</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .upload-area {
+            border: 3px dashed #ccc;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.3s, background 0.3s;
+        }
+        
+        .upload-area:hover {
+            border-color: #007bff;
+            background: #f8f9ff;
+        }
+        
+        .upload-area.dragover {
+            border-color: #007bff;
+            background: #e8f0ff;
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        .progress-container {
+            display: none;
+            margin: 20px 0;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #007bff, #00c6ff);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        
+        .progress-text {
+            margin-top: 10px;
+            color: #666;
+        }
+        
+        .results {
+            display: none;
+            margin-top: 20px;
+        }
+        
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #1e7e34;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        th {
+            background: #007bff;
+            color: white;
+            font-weight: 600;
+        }
+        
+        tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .download-link {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .download-link:hover {
+            text-decoration: underline;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .badge-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: none;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            flex: 1;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .stat-number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Overtime PDF Parser</h1>
+    <p class="subtitle">Upload a multi-page overtime PDF to split and extract employee IDs</p>
+    
+    <div class="upload-area" id="uploadArea">
+        <div class="upload-icon">📄</div>
+        <p><strong>Drop your PDF here</strong> or click to browse</p>
+        <p style="color: #999; font-size: 14px;">Supports multi-page PDF files</p>
+        <input type="file" id="fileInput" accept=".pdf">
+    </div>
+    
+    <div class="error-message" id="errorMessage"></div>
+    
+    <div class="progress-container" id="progressContainer">
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-text" id="progressText">Processing...</div>
+    </div>
+    
+    <div class="results" id="results">
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalPages">0</div>
+                <div class="stat-label">Total Pages</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="foundIds">0</div>
+                <div class="stat-label">IDs Found</div>
+            </div>
+        </div>
+        
+        <div class="results-header">
+            <h2>Extracted Data</h2>
+            <div>
+                <button class="btn btn-success" id="downloadAllBtn">Download All PDFs (ZIP)</button>
+                <button class="btn btn-primary" id="exportCsvBtn">Export CSV</button>
+            </div>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Page</th>
+                    <th>Employee ID</th>
+                    <th>Name</th>
+                    <th>Amount</th>
+                    <th>Download</th>
+                </tr>
+            </thead>
+            <tbody id="resultsBody">
+            </tbody>
+        </table>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script>
+        // Set PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const results = document.getElementById('results');
+        const resultsBody = document.getElementById('resultsBody');
+        const errorMessage = document.getElementById('errorMessage');
+        
+        let extractedData = [];
+        let splitPdfs = [];
+        
+        // Drag and drop handlers
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type === 'application/pdf') {
+                processPDF(file);
+            } else {
+                showError('Please upload a PDF file.');
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                processPDF(file);
+            }
+        });
+        
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+        }
+        
+        function hideError() {
+            errorMessage.style.display = 'none';
+        }
+        
+        function updateProgress(percent, text) {
+            progressFill.style.width = percent + '%';
+            progressText.textContent = text;
+        }
+        
+        async function processPDF(file) {
+            hideError();
+            extractedData = [];
+            splitPdfs = [];
+            resultsBody.innerHTML = '';
+            
+            progressContainer.style.display = 'block';
+            results.style.display = 'none';
+            updateProgress(0, 'Loading PDF...');
+            
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                
+                // Load with PDF.js for text extraction
+                const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                const totalPages = pdfDoc.numPages;
+                
+                // Load with pdf-lib for splitting
+                const pdfLibDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+                
+                updateProgress(10, `Found ${totalPages} pages. Processing...`);
+                
+                for (let i = 1; i <= totalPages; i++) {
+                    const percent = 10 + (80 * i / totalPages);
+                    updateProgress(percent, `Processing page ${i} of ${totalPages}...`);
+                    
+                    // Extract text from page
+                    const page = await pdfDoc.getPage(i);
+                    const textContent = await page.getTextContent();
+                    const pageText = textContent.items.map(item => item.str).join(' ');
+                    
+                    // Extract employee data
+                    const empData = extractEmployeeData(pageText, i);
+                    extractedData.push(empData);
+                    
+                    // Split page into separate PDF
+                    const newPdf = await PDFLib.PDFDocument.create();
+                    const [copiedPage] = await newPdf.copyPages(pdfLibDoc, [i - 1]);
+                    newPdf.addPage(copiedPage);
+                    const pdfBytes = await newPdf.save();
+                    
+                    splitPdfs.push({
+                        pageNum: i,
+                        empId: empData.empId,
+                        bytes: pdfBytes,
+                        filename: `Overtime_${empData.empId !== 'Not Found' ? empData.empId : 'Page_' + i}.pdf`
+                    });
+                }
+                
+                updateProgress(95, 'Rendering results...');
+                displayResults(totalPages);
+                updateProgress(100, 'Complete!');
+                
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                    results.style.display = 'block';
+                }, 500);
+                
+            } catch (error) {
+                console.error(error);
+                showError('Error processing PDF: ' + error.message);
+                progressContainer.style.display = 'none';
+            }
+        }
+        
+        function extractEmployeeData(text, pageNum) {
+            // Try multiple patterns for employee ID
+            // Pattern 1: 5-7 digit number followed by dash and name (e.g., "38600-SHARON M BATTELLE")
+            const idNamePattern = text.match(/(\d{5,7})-([A-Z][A-Z\s]+)/);
+            
+            // Pattern 2: Just look for 5-7 digit numbers
+            const idMatch = text.match(/\b(\d{5,7})\b/);
+            
+            // Pattern 3: "Dear Name," pattern
+            const nameMatch = text.match(/Dear\s+([^,]+),/i);
+            
+            // Pattern 4: Dollar amount
+            const amountMatch = text.match(/\$\s*([\d,]+\.?\d*)/);
+            
+            let empId = 'Not Found';
+            let empName = 'Unknown';
+            let amount = 'N/A';
+            
+            if (idNamePattern) {
+                empId = idNamePattern[1];
+                empName = idNamePattern[2].trim();
+            } else if (idMatch) {
+                empId = idMatch[1];
+            }
+            
+            if (nameMatch && empName === 'Unknown') {
+                empName = nameMatch[1].trim();
+            }
+            
+            if (amountMatch) {
+                amount = '$' + amountMatch[1];
+            }
+            
+            return {
+                pageNum,
+                empId,
+                empName,
+                amount,
+                rawText: text.substring(0, 200) // Keep first 200 chars for debugging
+            };
+        }
+        
+        function displayResults(totalPages) {
+            document.getElementById('totalPages').textContent = totalPages;
+            
+            let foundCount = 0;
+            
+            extractedData.forEach((data, index) => {
+                if (data.empId !== 'Not Found') foundCount++;
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${data.pageNum}</td>
+                    <td>
+                        <span class="badge ${data.empId !== 'Not Found' ? 'badge-success' : 'badge-warning'}">
+                            ${data.empId}
+                        </span>
+                    </td>
+                    <td>${data.empName}</td>
+                    <td>${data.amount}</td>
+                    <td>
+                        <a href="#" class="download-link" data-index="${index}">
+                            Download PDF
+                        </a>
+                    </td>
+                `;
+                resultsBody.appendChild(row);
+            });
+            
+            document.getElementById('foundIds').textContent = foundCount;
+            
+            // Add click handlers for individual downloads
+            document.querySelectorAll('.download-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const index = parseInt(e.target.dataset.index);
+                    downloadSinglePdf(index);
+                });
+            });
+        }
+        
+        function downloadSinglePdf(index) {
+            const pdf = splitPdfs[index];
+            const blob = new Blob([pdf.bytes], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = pdf.filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        // Download all as ZIP
+        document.getElementById('downloadAllBtn').addEventListener('click', async () => {
+            const zip = new JSZip();
+            
+            splitPdfs.forEach(pdf => {
+                zip.file(pdf.filename, pdf.bytes);
+            });
+            
+            const content = await zip.generateAsync({ type: 'blob' });
+            const url = URL.createObjectURL(content);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'overtime_pages.zip';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+        
+        // Export CSV
+        document.getElementById('exportCsvBtn').addEventListener('click', () => {
+            let csv = 'Page,Employee ID,Name,Amount\n';
+            
+            extractedData.forEach(data => {
+                csv += `${data.pageNum},"${data.empId}","${data.empName}","${data.amount}"\n`;
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'overtime_data.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+    </script>
+</body>
+</html>
