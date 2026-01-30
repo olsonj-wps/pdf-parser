@@ -343,12 +343,16 @@
             try {
                 const arrayBuffer = await file.arrayBuffer();
                 
+                // Create copies of the ArrayBuffer to avoid "detached" error
+                const arrayBufferCopy1 = arrayBuffer.slice(0);
+                const arrayBufferCopy2 = arrayBuffer.slice(0);
+                
                 // Load with PDF.js for text extraction
-                const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                const pdfDoc = await pdfjsLib.getDocument({ data: arrayBufferCopy1 }).promise;
                 const totalPages = pdfDoc.numPages;
                 
                 // Load with pdf-lib for splitting
-                const pdfLibDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+                const pdfLibDoc = await PDFLib.PDFDocument.load(arrayBufferCopy2);
                 
                 updateProgress(10, `Found ${totalPages} pages. Processing...`);
                 
