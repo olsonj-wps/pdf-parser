@@ -174,6 +174,7 @@
                 <button class="btn btn-success" id="downloadAllBtn">Download All (ZIP)</button>
                 <button class="btn btn-primary" id="downloadAllUnzippedBtn">Download All (Individual Files)</button>
                 <button class="btn btn-primary" id="exportCsvBtn">Export CSV</button>
+                <button class="btn btn-primary" id="debugBtn" style="background:#6c757d;">Show Raw Text (Debug)</button>
             </div>
         </div>
         
@@ -338,13 +339,22 @@
                 }
             }
             
-            // Dollar amount (get the last one) - handle 0, 1, or 2 decimal places
-            const amountMatches = text.match(/\$([\d,]+(?:\.\d{1,2})?)/g);
-            if (amountMatches && amountMatches.length > 0) {
-                amount = amountMatches[amountMatches.length - 1];
+            // Dollar amount - try multiple patterns
+            // Pattern 1: $ followed by number (with optional space)
+            let amountMatches = text.match(/\$\s*([\d,]+(?:\.\d+)?)/g);
+            
+            // Pattern 2: Look for "premium portion of overtime" followed by amount
+            if (!amountMatches || amountMatches.length === 0) {
+                const premiumMatch = text.match(/premium\s+portion\s+of\s+overtime\s+\$?\s*([\d,]+(?:\.\d+)?)/i);
+                if (premiumMatch) {
+                    amount = '$' + premiumMatch[1];
+                }
+            } else {
+                const rawAmount = amountMatches[amountMatches.length - 1];
+                amount = rawAmount.replace(/\s/g, '');
             }
             
-            return { pageNum, empId, empName, amount };
+            return { pageNum, empId, empName, amount, rawText: text };
         }
         
         function displayResults(totalPages) {
@@ -442,6 +452,25 @@
             const a = document.createElement('a');
             a.href = url;
             a.download = 'overtime_data.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+        
+        document.getElementById('debugBtn').addEventListener('click', () => {
+            let debugText = '';
+            extractedData.forEach(data => {
+                debugText += `=== PAGE ${data.pageNum} ===\n`;
+                debugText += `Extracted ID: ${data.empId}\n`;
+                debugText += `Extracted Name: ${data.empName}\n`;
+                debugText += `Extracted Amount: ${data.amount}\n`;
+                debugText += `--- Raw Text (first 1000 chars) ---\n`;
+                debugText += data.rawText.substring(0, 1000) + '\n\n';
+            });
+            const blob = new Blob([debugText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'debug_output.txt';
             a.click();
             URL.revokeObjectURL(url);
         });
